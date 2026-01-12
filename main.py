@@ -1,28 +1,15 @@
-import os
-import numpy as np
-import pandas as pd
 import json
-from openai import OpenAI
 from dotenv import load_dotenv
 import chromadb
 import uuid
+from pathlib import Path
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 load_dotenv()
 
-key = os.getenv("OPENAI_API_KEY")
-client = OpenAI(api_key=key)
-
-# chroma_key = os.getenv("CHROMA_API_KEY")
-# chroma_tenant = os.getenv("CHROMA_TENANT")
-# chroma_client = chromadb.CloudClient(
-#   api_key=chroma_key,
-#   tenant=chroma_tenant,
-#   database='Fin_Doc Search'
-# )
-
 chroma_client = chromadb.Client()
+directory_path = Path("test_docs")
 
 query = "What is the client fee schedule?"
 
@@ -39,26 +26,25 @@ def create_collection():
     return chroma_collection
 
 
-def split_document():
-    with open("Test Docs/doc3.txt", 'r') as file:
-        data= file.read()
+def split_documents(chroma_collection):
 
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=150,
-            chunk_overlap=50,
-            length_function=len,
-            is_separator_regex=False,
-        )
-    texts = text_splitter.create_documents([data])
-    data = [item.page_content for item in texts]
-    return data
+    for txt_file in directory_path.iterdir():
+        with open(f"{directory_path}/{txt_file.name}", 'r') as file:
+            data = file.read()
 
-def add_collections(chroma_collection):
-    data = split_document()
-    document_ids = [str(uuid.uuid4()) for _ in range(len(data))]
+            text_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=150,
+                chunk_overlap=50,
+                length_function=len,
+                is_separator_regex=False,
+            )
+        texts = text_splitter.create_documents([data])
+        data = [item.page_content for item in texts]
+        document_ids = [str(uuid.uuid4()) for _ in range(len(data))]
 
-    chroma_collection.add(
+        chroma_collection.add(
         documents = data,
+        metadatas=[{"title": f"{txt_file.name}"} for _ in range(len(data))],
         ids = document_ids,
     )
 
@@ -71,25 +57,8 @@ def get_results(query):
     print(results)
 
 
-# def generate_embeddings(text):
-#     response = client.embeddings.create(
-#         input=text,
-#         model="text-embedding-3-small"
-#     )
-#     response = json.loads(response.model_dump_json())
-#     embeddings = response['data'][0]['embedding']
-#     return np.array(embeddings)
-
-# def cosine_similarity(vec1, vec2):
-#     dot_product = np.dot(vec1, vec2)
-#     norm_vec1 = np.linalg.norm(vec1)
-#     norm_vec2 = np.linalg.norm(vec2)
-#     similarity = dot_product / (norm_vec1 * norm_vec2)
-#     return similarity
-
-
 if __name__ == '__main__':
 
     chroma_collection = create_collection()
-    add_collections(chroma_collection)
+    split_documents(chroma_collection)
     get_results(query)
