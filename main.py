@@ -1,12 +1,14 @@
-import json
 from dotenv import load_dotenv
 import chromadb
 import uuid
 from pathlib import Path
+from openai import OpenAI
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 load_dotenv()
+
+openAI_client = OpenAI()
 
 chroma_client = chromadb.Client()
 directory_path = Path("test_docs")
@@ -53,12 +55,41 @@ def get_results(query):
         query_texts=[query],
         n_results=2,
     )
-    results = json.dumps(results, indent=4)
-    print(results)
+    return results["documents"][0]
 
+def construct_prompt():
+    documents = get_results(query)
+    context = "\n\n".join(documents)
+
+    prompt = f"""
+        You answer questions about financial documents.
+
+        Answer the question using ONLY the context below.
+        If the answer is not present, say "I don't know."
+
+        Context:
+        {context}
+
+        Question:
+        {query}
+    """
+
+    return prompt
+
+def send_prompt():
+    prompt = construct_prompt()
+    response = openAI_client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+        {"role": "system", "content": "You are a helpful financial assistant."},
+        {"role": "user", "content": prompt}
+        ],
+        temperature=0
+    )
+    return response.choices[0].message.content
 
 if __name__ == '__main__':
 
     chroma_collection = create_collection()
     split_documents(chroma_collection)
-    get_results(query)
+    send_prompt()
