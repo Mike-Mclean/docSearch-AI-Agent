@@ -13,7 +13,6 @@ openAI_client = OpenAI()
 chroma_client = chromadb.Client()
 directory_path = Path("test_docs")
 
-query = "What is the client fee schedule?"
 
 def create_collection():
     try:
@@ -35,29 +34,31 @@ def split_documents(chroma_collection):
             data = file.read()
 
             text_splitter = RecursiveCharacterTextSplitter(
-                chunk_size=150,
-                chunk_overlap=50,
+                chunk_size=600,
+                chunk_overlap=100,
                 length_function=len,
                 is_separator_regex=False,
             )
-        texts = text_splitter.create_documents([data])
-        data = [item.page_content for item in texts]
-        document_ids = [str(uuid.uuid4()) for _ in range(len(data))]
+
+        documents = text_splitter.create_documents(
+            [data],
+            metadatas=[{"title": txt_file.name}]
+        )
 
         chroma_collection.add(
-        documents = data,
-        metadatas=[{"title": f"{txt_file.name}"} for _ in range(len(data))],
-        ids = document_ids,
-    )
+            documents = [doc.page_content for doc in documents],
+            metadatas=[doc.metadata for doc in documents],
+            ids = [str(uuid.uuid4()) for _ in documents],
+        )
 
 def get_results(query):
     results = chroma_collection.query(
         query_texts=[query],
-        n_results=2,
+        n_results=8,
     )
     return results["documents"][0]
 
-def construct_prompt():
+def construct_prompt(query):
     documents = get_results(query)
     context = "\n\n".join(documents)
 
@@ -76,8 +77,8 @@ def construct_prompt():
 
     return prompt
 
-def send_prompt():
-    prompt = construct_prompt()
+def send_prompt(query):
+    prompt = construct_prompt(query)
     response = openAI_client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
@@ -90,6 +91,7 @@ def send_prompt():
 
 if __name__ == '__main__':
 
+    query = input("What would you like to know: ")
     chroma_collection = create_collection()
     split_documents(chroma_collection)
-    send_prompt()
+    print(send_prompt(query))
