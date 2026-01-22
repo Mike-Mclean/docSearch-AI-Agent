@@ -3,8 +3,9 @@ import chromadb
 import uuid
 from pathlib import Path
 from openai import OpenAI
-
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from split_mds import *
+from convert_pdf_to_md import *
+import os
 
 load_dotenv()
 
@@ -12,6 +13,13 @@ openAI_client = OpenAI()
 
 chroma_client = chromadb.Client()
 directory_path = Path("test_docs")
+
+openAI_api_key = os.getenv("OPENAI_API_KEY")
+
+pdfs_dir = Path("test_docs")
+
+md_dir = Path("markdown_docs")
+md_dir.mkdir(exist_ok=True)
 
 
 def create_collection():
@@ -29,27 +37,16 @@ def create_collection():
 
 def split_documents(chroma_collection):
 
-    for txt_file in directory_path.iterdir():
-        with open(f"{directory_path}/{txt_file.name}", 'r') as file:
-            data = file.read()
+    convert_pdf_to_md(input_dir=pdfs_dir, output_dir=md_dir, api_key=openAI_api_key)
+    document_sections = parse_markdown_sections(file_directory=md_dir)
 
-            text_splitter = RecursiveCharacterTextSplitter(
-                chunk_size=600,
-                chunk_overlap=100,
-                length_function=len,
-                is_separator_regex=False,
-            )
+    #reconnect chroma DB to new document_sections variable
 
-        documents = text_splitter.create_documents(
-            [data],
-            metadatas=[{"title": txt_file.name}]
-        )
-
-        chroma_collection.add(
-            documents = [doc.page_content for doc in documents],
-            metadatas=[doc.metadata for doc in documents],
-            ids = [str(uuid.uuid4()) for _ in documents],
-        )
+    chroma_collection.add(
+        documents = [doc.page_content for doc in documents],
+        metadatas=[doc.metadata for doc in documents],
+        ids = [str(uuid.uuid4()) for _ in documents],
+    )
 
 def get_results(query):
     results = chroma_collection.query(
