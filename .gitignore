@@ -3,3 +3,5 @@
 chroma
 test_docs/
 markdown_docs/
+__pycache__/
+harder_test_docs/

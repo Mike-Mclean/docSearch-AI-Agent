@@ -16,7 +16,7 @@ directory_path = Path("test_docs")
 
 openAI_api_key = os.getenv("OPENAI_API_KEY")
 
-pdfs_dir = Path("test_docs")
+pdfs_dir = Path("harder_test_docs")
 
 md_dir = Path("markdown_docs")
 md_dir.mkdir(exist_ok=True)
@@ -40,13 +40,13 @@ def split_documents(chroma_collection):
     convert_pdf_to_md(input_dir=pdfs_dir, output_dir=md_dir, api_key=openAI_api_key)
     document_sections = parse_markdown_sections(file_directory=md_dir)
 
-    #reconnect chroma DB to new document_sections variable
+    for docs in document_sections:
+        chroma_collection.add(
+            documents = [doc.page_content for doc in docs],
+            metadatas=[doc.metadata for doc in docs],
+            ids = [str(uuid.uuid4()) for _ in docs],
+        )
 
-    chroma_collection.add(
-        documents = [doc.page_content for doc in documents],
-        metadatas=[doc.metadata for doc in documents],
-        ids = [str(uuid.uuid4()) for _ in documents],
-    )
 
 def get_results(query):
     results = chroma_collection.query(

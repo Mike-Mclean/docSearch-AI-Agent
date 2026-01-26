@@ -9,6 +9,12 @@ def normalize_headings(md):
         md
     )
 
+def normalize_metadata(docs):
+    for doc in docs:
+        if not doc.metadata:
+            doc.metadata = {"source": "unknown"}
+    return docs
+
 def parse_markdown_sections(file_directory):
 
     sections = []
@@ -28,8 +34,14 @@ def parse_markdown_sections(file_directory):
             normalized_data = normalize_headings(data)
             md_header_splits = markdown_splitter.split_text(normalized_data)
         sections.append(md_header_splits)
+
+    for doc_list in sections:
+        normalize_metadata(doc_list)
+
     return sections
 
 if __name__ == "__main__":
     path = "markdown_docs"
-    parse_markdown_sections(path)
+    doc_sections = parse_markdown_sections(path)
+    print(doc_sections[0][0].page_content)
+    print(doc_sections[0][0].metadata)
